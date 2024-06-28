@@ -12,6 +12,7 @@ public struct Grid: View, LayoutArranging, LayoutPositioning {
   @State private var positions: PositionedLayout = .empty
   @State private var isLoaded: Bool = false
   @State private var alignments: [GridElement: GridAlignment] = [:]
+  @State private var previousSize: CGSize = .zero
   #if os(iOS) || os(watchOS) || os(tvOS)
   @State private var internalLayoutCache = Cache<ArrangingTask, LayoutArrangement>()
   @State private var internalPositionsCache = Cache<PositioningTask, PositionedLayout>()
@@ -133,6 +134,20 @@ public struct Grid: View, LayoutArranging, LayoutPositioning {
           boundingSize: mainGeometry.size
         )
         self.saveAlignmentsFrom(preference: preference)
+      }
+      .onChange(of: mainGeometry.size) { newSize in
+        // FIXME: 減少 rerender 次數與頻率 (action tried to update multiple times per frame.)
+        guard contentMode == .contentFit,
+              newSize != previousSize
+        else { return }
+        previousSize = newSize
+        calculateLayout(
+          preference: GridPreference(
+            itemsInfo: itemsBuilder().map { GridPreference.ItemInfo(positionedItem: PositionedItem(bounds: .zero, gridElement: $0)) },
+            environment: GridPreference.Environment(tracks: trackSizes, contentMode: contentMode, flow: flow, packing: packing, boundingSize: newSize)
+          ),
+          boundingSize: newSize
+        )
       }
     }
     .if(contentMode == .contentFit) { content in
